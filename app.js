@@ -30,7 +30,7 @@ function shuffle(arr){
   }
   return a;
 }
-function pickRandomQuestions(n){ return shuffle(QUESTIONS).slice(0,n); }
+
 function groupByTopic(questions){
   const m=new Map();
   for(const q of questions){
@@ -38,6 +38,47 @@ function groupByTopic(questions){
     m.get(q.topic).push(q);
   }
   return m;
+}
+
+/* =========================
+   FIX: unique questions
+   ========================= */
+
+// нормалізація тексту питання для уникнення дублювань
+function normalizeQuestionText(s){
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[’'"]/g, "")      // прибираємо різні апострофи/лапки
+    .replace(/[()]/g, "")
+    .trim();
+}
+
+// повертає масив унікальних питань (по id + по нормалізованому тексту питання)
+function uniqueQuestions(list){
+  const seenId = new Set();
+  const seenText = new Set();
+  const out = [];
+
+  for (const q of list) {
+    if (!q) continue;
+    if (seenId.has(q.id)) continue;
+
+    const nt = normalizeQuestionText(q.question);
+    if (nt && seenText.has(nt)) continue;
+
+    seenId.add(q.id);
+    if (nt) seenText.add(nt);
+    out.push(q);
+  }
+  return out;
+}
+
+// вибір N випадкових УНІКАЛЬНИХ питань з пулу
+function pickUniqueRandomQuestions(pool, n){
+  const uniqPool = uniqueQuestions(pool);
+  const picked = shuffle(uniqPool).slice(0, n);
+  return picked;
 }
 
 const state = {
@@ -55,9 +96,9 @@ const state = {
 };
 
 const copFrames = {
-  neutral:["assets/cop/neutral_1.png","assets/cop/neutral_2.png"],
-  happy:["assets/cop/happy_1.png","assets/cop/neutral_1.png"],
-  angry:["assets/cop/angry_1.png","assets/cop/neutral_2.png"],
+  neutral:["assets/cop/idle_1.png","assets/cop/idle_2.png"],
+  happy:["assets/cop/idle_1.png","assets/cop/idle_2.png"],
+  angry:["assets/cop/idle_1.png","assets/cop/idle_2.png"],
 };
 let copAnim = { kind:"neutral", i:0, t:null };
 
@@ -71,7 +112,7 @@ function setCop(kind, line){
   copAnim.t=setInterval(()=>{
     copAnim.i=(copAnim.i+1)%copFrames[copAnim.kind].length;
     img.src=copFrames[copAnim.kind][copAnim.i];
-  }, 350);
+  }, 380);
 }
 
 function setCopHomeAnim(){
@@ -117,21 +158,30 @@ function tickTimer(){
   $("timer").textContent = `${fmt2(Math.floor(s/60))}:${fmt2(s%60)}`;
 }
 
+/* =========================
+   Start modes
+   ========================= */
+
 function startExam(){
   ensureName();
   state.mode="exam";
   state.topic="Випадкові";
-  state.questions=pickRandomQuestions(20);
+
+  // FIX: унікальні питання в межах тесту
+  state.questions = pickUniqueRandomQuestions(QUESTIONS, 20);
+
   state.answers=new Map();
   state.idx=0;
   state.startedAt=nowIso();
   state.finishedAt=null;
   state.secondsLeft=20*60;
-  $("pillMode").textContent="🎮 ІСПИТ";
-  $("pillTopic").textContent="🎲 20 ВИПАДКОВИХ";
+
+  $("pillMode").textContent="🎮 Іспит";
+  $("pillTopic").textContent="🎲 20 унікальних";
   $("learnExplain").classList.add("hidden");
+
   showView("test");
-  setCop("neutral","“Іспит. Ніяких реакцій — ніяких спойлерів.”");
+  setCop("neutral","“Іспит: без підказок і реакцій.”");
   startTimer();
   renderQuestion();
 }
@@ -140,18 +190,23 @@ function startLearn(){
   ensureName();
   state.mode="learn";
   state.topic="Випадкові";
-  state.questions=pickRandomQuestions(20);
+
+  // FIX: унікальні питання в межах тесту
+  state.questions = pickUniqueRandomQuestions(QUESTIONS, 20);
+
   state.answers=new Map();
   state.idx=0;
   state.startedAt=nowIso();
   state.finishedAt=null;
   state.secondsLeft=0;
-  $("pillMode").textContent="📚 НАВЧАННЯ";
-  $("pillTopic").textContent="🎲 20 ВИПАДКОВИХ";
+
+  $("pillMode").textContent="📚 Навчання";
+  $("pillTopic").textContent="🎲 20 унікальних";
   $("timer").textContent="∞";
   $("learnExplain").classList.remove("hidden");
+
   showView("test");
-  setCop("happy","“Навчання: відповів — пояснення одразу.”");
+  setCop("happy","“Навчання: відповів — отримав пояснення.”");
   stopTimer();
   renderQuestion();
 }
@@ -163,19 +218,25 @@ function startTopic(topicId){
   ensureName();
   state.mode="topic";
   state.topic=topicId;
-  const qs=QUESTIONS.filter(q=>q.topic===topicId);
-  state.questions=shuffle(qs).slice(0, Math.min(20, qs.length));
+
+  const pool = QUESTIONS.filter(q=>q.topic===topicId);
+
+  // FIX: унікальні питання навіть в межах теми
+  state.questions = pickUniqueRandomQuestions(pool, Math.min(20, pool.length));
+
   state.answers=new Map();
   state.idx=0;
   state.startedAt=nowIso();
   state.finishedAt=null;
   state.secondsLeft=0;
-  $("pillMode").textContent="🧩 ТЕМА";
-  $("pillTopic").textContent=`📌 ${topicId.toUpperCase()}`;
+
+  $("pillMode").textContent="🧩 Тема";
+  $("pillTopic").textContent=`📌 ${topicId}`;
   $("timer").textContent="∞";
   $("learnExplain").classList.add("hidden");
+
   showView("test");
-  setCop("neutral","“Тренуй тему. Оцінка — у фіналі.”");
+  setCop("neutral","“Тренуй тему. Результат побачиш у фіналі.”");
   stopTimer();
   renderQuestion();
 }
@@ -192,13 +253,17 @@ function renderTopicList(){
       <div class="topicTitle">${t.title}</div>
       <div class="topicDesc">${t.desc}</div>
       <div class="topicMeta">
-        <span class="pill">ПИТАНЬ: <b>${count}</b></span>
-        <span class="pill">РЕЖИМ: ТРЕНУВАННЯ</span>
+        <span class="pill">Питань: <b>${count}</b></span>
+        <span class="pill">Режим: тренування</span>
       </div>`;
     el.addEventListener("click",()=>{ closeTopics(); startTopic(t.id); });
     list.appendChild(el);
   }
 }
+
+/* =========================
+   Render question
+   ========================= */
 
 function renderQuestion(){
   const q=state.questions[state.idx];
@@ -238,18 +303,18 @@ function renderQuestion(){
     if(has){
       $("learnText").textContent=q.explanation;
       const pick=state.answers.get(q.id);
-      if(pick===q.correctIndex) setCop("happy","“О! Красиво. Так і треба.”");
-      else setCop("angry","“Нє. Читай пояснення і не позорся.”");
+      if(pick===q.correctIndex) setCop("happy","“О! Оце вже схоже на водія.”");
+      else setCop("angry","“Нє-нє-нє. Перечитай пояснення.”");
     }else{
-      setCop("neutral","“Вибирай. Потім я скажу, що не так.”");
+      setCop("neutral","“Вибирай відповідь. Потім поясню.”");
     }
   }else{
-    setCop("neutral", state.mode==="exam" ? "“Іспит. Фідбеку нема.”" : "“Тема. Фідбеку нема.”");
+    setCop("neutral", state.mode==="exam" ? "“Тримай фокус. Підказок нема.”" : "“Тренуйся. Оцінка — у кінці.”");
     $("learnExplain").classList.add("hidden");
   }
 
   $("btnPrev").disabled = state.idx===0;
-  $("btnNext").textContent = state.idx===total-1 ? "ОСТАННЄ →" : "ДАЛІ →";
+  $("btnNext").textContent = state.idx===total-1 ? "Останнє →" : "Далі →";
   $("btnFinish").classList.toggle("hidden", state.idx!==total-1);
   renderGrid();
 }
@@ -266,6 +331,10 @@ function next(){
   else finishTest(false);
 }
 function prev(){ if(state.idx>0){ state.idx--; renderQuestion(); } }
+
+/* =========================
+   Finish / Results
+   ========================= */
 
 function finishTest(byTimeout){
   stopTimer();
@@ -310,20 +379,20 @@ function renderResult(meta){
   const {correct,total,wrong,passed,percent,byTimeout}=meta;
   $("resScore").textContent=`${correct}/${total}`;
   $("resPercent").textContent=`${percent}%`;
-  $("resTitle").textContent = passed ? "✅ СКЛАДЕНО" : "❌ НЕ СКЛАДЕНО";
+  $("resTitle").textContent = passed ? "✅ Іспит складено" : "❌ Іспит не складено";
   $("resMeta").textContent = `${state.name} · ${new Date().toLocaleString("uk-UA")}` + (byTimeout ? " · час вийшов" : "");
-  $("resBadge").textContent = passed ? "Вітаємо! Рівень ‘Водій’ відкрито 🪪" : "Перездача. Повернешся сильнішим 💢";
+  $("resBadge").textContent = passed ? "Вітаємо! Права майже в кишені 🪪" : "Перездача. Без паніки — просто ще раз 💢";
   $("resBg").src = passed ? "assets/bg/pass.png" : "assets/bg/fail.png";
 
   const passLines=[
-    "Респект. Тепер головне — не розслабляйся на дорозі.",
-    "Круто. Ще трохи практики — і буде ідеал.",
-    "Ти реально витягнув. Так тримати.",
+    "Ти реально непогано зайшов. Ще пару тренувань — і екзаменатор буде плакати від гордості.",
+    "Легенда. Тепер — не “як-небудь”, а чітко за правилами.",
+    "Рівень ‘Водій+’. Не розслабляйся — але це вже круто.",
   ];
   const failLines=[
-    "Не парся. Це просто тренувальний рейд. Зараз підсилюємо слабкі теми.",
-    "Провал — це не кінець. Це чекпойнт.",
-    "Окей. Беремо теми з помилками і робимо реванш.",
+    "Нічого страшного. Це не поразка — це туторіал, який ти пропустив.",
+    "Зроби коло по слабких темах — і повернешся сюди вже з перемогою.",
+    "Сьогодні штраф — завтра диплом. Погнали тренуватися.",
   ];
   $("motivation").textContent = passed ? passLines[Math.floor(Math.random()*passLines.length)]
                                        : failLines[Math.floor(Math.random()*failLines.length)];
@@ -362,29 +431,28 @@ async function buildResultCardCanvas({passed, correct, total, percent}){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   ctx.drawImage(bg,0,0,canvas.width,canvas.height);
 
-  ctx.fillStyle="rgba(0,0,0,0.62)";
+  ctx.fillStyle="rgba(0,0,0,0.55)";
   roundRect(ctx,80,120,1040,500,26); ctx.fill();
 
   ctx.fillStyle="rgba(255,255,255,0.95)";
-  ctx.font="900 52px 'Press Start 2P', sans-serif";
-  ctx.fillText(passed ? "PDR QUEST: PASS" : "PDR QUEST: FAIL",130,210);
+  ctx.font="900 58px 'Press Start 2P', monospace";
+  ctx.fillText(passed ? "ПОСВІДЧЕННЯ" : "ПЕРЕЗДАЧА",130,210);
 
-  ctx.font="600 22px 'Press Start 2P', sans-serif";
+  ctx.font="600 22px 'Press Start 2P', monospace";
   ctx.fillStyle="rgba(255,255,255,0.90)";
   const dt=new Date().toLocaleString("uk-UA");
-  ctx.fillText(`Ім’я: ${state.name}`,130,280);
-  ctx.fillText(`Дата: ${dt}`,130,330);
-  ctx.fillText(`Режим: ${state.mode==="exam"?"Іспит":state.mode==="learn"?"Навчання":"Тема"}`,130,380);
-  ctx.fillText(`Результат: ${correct}/${total} (${percent}%)`,130,430);
+  ctx.fillText(`Ім’я: ${state.name}`,130,275);
+  ctx.fillText(`Дата: ${dt}`,130,315);
+  ctx.fillText(`Результат: ${correct}/${total} (${percent}%)`,130,355);
 
-  const verdict = passed ? "СКЛАДЕНО (≤2)" : "НЕ СКЛАДЕНО (>2)";
-  ctx.font="900 26px 'Press Start 2P', sans-serif";
-  ctx.fillStyle = passed ? "rgba(54,255,181,0.95)" : "rgba(255,77,109,0.95)";
-  ctx.fillText(verdict,130,490);
+  const verdict = passed ? "СКЛАДЕНО" : "НЕ СКЛАДЕНО";
+  ctx.font="900 28px 'Press Start 2P', monospace";
+  ctx.fillStyle = passed ? "rgba(124,255,214,0.95)" : "rgba(255,120,120,0.95)";
+  ctx.fillText(verdict,130,420);
 
-  ctx.font="500 16px 'Press Start 2P', sans-serif";
+  ctx.font="500 16px 'Press Start 2P', monospace";
   ctx.fillStyle="rgba(255,255,255,0.70)";
-  ctx.fillText("не є офіційним документом",130,560);
+  ctx.fillText("PDR Quest • навчальний тренажер",130,580);
 }
 
 function roundRect(ctx,x,y,w,h,r){
@@ -405,6 +473,8 @@ function downloadCanvas(){
   a.href=canvas.toDataURL("image/png");
   a.click();
 }
+
+/* ===== Grid & Stats ===== */
 
 function renderGrid(){
   const grid=$("grid");
@@ -486,6 +556,8 @@ function resetAll(){
   loadProfile();
   alert("Готово. Дані очищено.");
 }
+
+/* ===== Bindings ===== */
 
 function bindUI(){
   $("btnExam").addEventListener("click", startExam);
