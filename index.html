@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>PDR Quest — тренажер іспиту</title>
+
+  <!-- Pixel font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <div class="brand">
+        <div class="logo">🚦</div>
+        <div class="brandText">
+          <div class="brandName">PDR Quest</div>
+          <div class="brandSub">Піксельний тренажер ПДР України</div>
+        </div>
+      </div>
+
+      <div class="topActions">
+        <button id="btnStats" class="btn ghost" type="button">Статистика</button>
+        <button id="btnReset" class="btn ghost danger" type="button" title="Очистити дані">Скинути</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section id="viewHome" class="view">
+        <div class="card hero">
+          <div class="heroLeft">
+            <h1>Вчи ПДР як у грі — складай як бос</h1>
+            <p class="muted">
+              <b>Іспит:</b> 20 випадкових питань, 20 хв, без підказок. <b>Навчання:</b> після відповіді одразу пояснення.
+              Є тренування по темах, прогрес, історія і слабкі теми.
+            </p>
+
+            <div class="row">
+              <label class="field">
+                <span>Ім’я (для “картки результату”)</span>
+                <input id="inpName" placeholder="Наприклад: Андрій" maxlength="28" />
+              </label>
+            </div>
+
+            <div class="modeGrid">
+              <button id="btnExam" class="modeCard" type="button">
+                <div class="modeTitle">🎮 ПОВНИЙ ІСПИТ</div>
+                <div class="modeMeta">20 питань · 20 хв · без фідбеку</div>
+              </button>
+              <button id="btnTopics" class="modeCard" type="button">
+                <div class="modeTitle">🧩 ПО ТЕМАХ</div>
+                <div class="modeMeta">обираєш тему · тренуєшся</div>
+              </button>
+              <button id="btnLearn" class="modeCard" type="button">
+                <div class="modeTitle">📚 НАВЧАННЯ</div>
+                <div class="modeMeta">відразу пояснення · NPC реагує</div>
+              </button>
+            </div>
+
+            <div class="tipBox">
+              <div class="tipTitle">⚠️ Важливо</div>
+              <div class="tipText">
+                Це навчальний тренажер. Для офіційної підготовки звіряйся з актуальною редакцією ПДР.
+              </div>
+            </div>
+          </div>
+
+          <div class="heroRight">
+            <div class="gamePanel">
+              <div class="panelTitle">NPC: Інспектор</div>
+              <div class="copWrap">
+                <img id="copImgHome" class="cop" src="assets/cop/neutral_1.png" alt="інспектор" />
+              </div>
+              <div class="panelText">
+                “ПДР або ти, або тебе.”
+              </div>
+              <div class="chips">
+                <span class="chip">100 питань</span>
+                <span class="chip">20 хв</span>
+                <span class="chip">піки-піки UI</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div id="topicPicker" class="card hidden">
+          <div class="cardHead">
+            <h2>Обери тему</h2>
+            <button id="btnCloseTopics" class="btn ghost" type="button">Закрити</button>
+          </div>
+          <div id="topicList" class="topicList"></div>
+        </div>
+      </section>
+
+      <section id="viewTest" class="view hidden">
+        <div class="testShell">
+          <div class="testMain card">
+            <div class="testHead">
+              <div class="testMeta">
+                <div class="pill" id="pillMode">Режим</div>
+                <div class="pill" id="pillTopic">Тема</div>
+              </div>
+              <div class="timerWrap">
+                <div class="timer" id="timer">20:00</div>
+              </div>
+            </div>
+
+            <div class="progressBar">
+              <div class="progressFill" id="progressFill"></div>
+            </div>
+
+            <div class="qTop">
+              <div class="qIndex" id="qIndex">Питання 1/20</div>
+              <button id="btnGrid" class="btn ghost small" type="button">Список</button>
+            </div>
+
+            <div id="qImageWrap" class="qImageWrap hidden">
+              <img id="qImage" alt="ілюстрація" />
+            </div>
+
+            <h2 id="qText" class="qText">...</h2>
+
+            <div id="answers" class="answers"></div>
+
+            <div id="learnExplain" class="learnExplain hidden">
+              <div class="learnTitle">Пояснення</div>
+              <div id="learnText" class="learnText"></div>
+            </div>
+
+            <div class="navRow">
+              <button id="btnPrev" class="btn" type="button">← Назад</button>
+              <button id="btnNext" class="btn primary" type="button">Далі →</button>
+              <button id="btnFinish" class="btn danger hidden" type="button">Завершити</button>
+            </div>
+
+            <div id="gridModal" class="gridModal hidden">
+              <div class="gridCard card">
+                <div class="cardHead">
+                  <h3>Швидкий перехід</h3>
+                  <button id="btnCloseGrid" class="btn ghost" type="button">✕</button>
+                </div>
+                <div id="grid" class="grid"></div>
+              </div>
+            </div>
+          </div>
+
+          <aside class="testSide card">
+            <div class="sideTitle">Інспектор</div>
+            <div class="copWrap big">
+              <img id="copImg" class="cop big" src="assets/cop/neutral_1.png" alt="інспектор" />
+            </div>
+            <div id="copLine" class="sideText">“Починаємо.”</div>
+
+            <div class="miniStats">
+              <div class="miniStat">
+                <div class="miniLabel">Відповіді</div>
+                <div class="miniValue" id="miniAnswered">0</div>
+              </div>
+              <div class="miniStat">
+                <div class="miniLabel">Залишилось</div>
+                <div class="miniValue" id="miniLeft">20</div>
+              </div>
+            </div>
+
+            <div class="kbdHint">
+              <div class="kbdTitle">Клавіші</div>
+              <div class="kbdRow"><span class="kbd">←</span> назад</div>
+              <div class="kbdRow"><span class="kbd">→</span> далі</div>
+              <div class="kbdRow"><span class="kbd">1-4</span> відповідь</div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section id="viewResult" class="view hidden">
+        <div class="card resultCard">
+          <div class="resultTop">
+            <div>
+              <h2 id="resTitle">Результат</h2>
+              <div id="resMeta" class="muted"></div>
+            </div>
+            <div class="resultActions">
+              <button id="btnDownloadCard" class="btn" type="button">⬇️ Картка</button>
+              <button id="btnHome" class="btn primary" type="button">На головну</button>
+            </div>
+          </div>
+
+          <div class="resultBanner">
+            <img id="resBg" class="resBg" src="assets/bg/pass.png" alt="фон" />
+            <canvas id="resCanvas" width="1200" height="700" class="hidden"></canvas>
+            <div class="bannerOverlay">
+              <div class="scoreBox">
+                <div class="scoreBig" id="resScore">0/20</div>
+                <div class="scoreSmall" id="resPercent">0%</div>
+              </div>
+              <div class="badge" id="resBadge">—</div>
+            </div>
+          </div>
+
+          <div id="motivation" class="motivation"></div>
+
+          <div class="cardHead">
+            <h3>Розбір усіх питань</h3>
+            <div class="muted">Тут показано правильні відповіді, твою відповідь та пояснення.</div>
+          </div>
+
+          <div id="reviewList" class="reviewList"></div>
+        </div>
+      </section>
+
+      <section id="viewStats" class="view hidden">
+        <div class="card">
+          <div class="cardHead">
+            <h2>Статистика</h2>
+            <button id="btnCloseStats" class="btn ghost" type="button">Закрити</button>
+          </div>
+
+          <div class="statsGrid">
+            <div class="statTile">
+              <div class="statLabel">Спроб</div>
+              <div class="statValue" id="stAttempts">0</div>
+            </div>
+            <div class="statTile">
+              <div class="statLabel">Найкращий</div>
+              <div class="statValue" id="stBest">—</div>
+            </div>
+            <div class="statTile">
+              <div class="statLabel">Останній</div>
+              <div class="statValue" id="stLast">—</div>
+            </div>
+          </div>
+
+          <h3>Слабкі теми</h3>
+          <div id="weakTopics" class="weakTopics"></div>
+
+          <h3>Історія</h3>
+          <div id="history" class="history"></div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="muted">PDR Quest · усе зберігається локально (localStorage)</div>
+    </footer>
+  </div>
+
+  <script src="data/questions.js"></script>
+  <script src="app.js" defer></script>
+</body>
+</html>
